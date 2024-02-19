@@ -212,17 +212,22 @@ def evaluate(
         if results == []:
             raise ExceptionInRunner()
 
+        metrics_values = {}
         # convert results to dataset_like
         for i, _ in enumerate(dataset):
             s = {}
             for j, m in enumerate(metrics):
-                s[m.name] = results[len(metrics) * i + j]
+                val = results[len(metrics) * i + j]
+                s[m.name] = val
+                if m.name not in metrics_values:
+                    metrics_values[m.name] = [val]
+                else:
+                    metrics_values[m.name].append(val)
             scores.append(s)
             # close the row chain
             row_rm, row_group_cm = row_run_managers[i]
             if not row_group_cm.ended:
                 row_rm.on_chain_end(s)
-
     # run evaluation task
     except Exception as e:
         if not evaluation_group_cm.ended:
@@ -261,6 +266,8 @@ def evaluate(
             language=metric_lang[0] if len(metric_lang) > 0 else "",
         )
     )
+    for key, val in metrics_values.items():
+        result[f"{key}_nan_percent"] = np.count_nonzero(np.isnan(val)) / len(val) * 100
     return result
 
 
