@@ -152,9 +152,10 @@ class Faithfulness(MetricWithLLM):
         # check the verdicts and compute the score
         verdict_score_map = {"1": 1, "0": 0, "null": np.nan}
         output = output if isinstance(output, list) else [output]
+        output = [item if isinstance(item, dict) else {} for item in output]
         faithful_statements = sum(
             verdict_score_map.get(
-                statement_with_validation.get("verdict", "").lower(), np.nan
+                str(statement_with_validation.get("verdict", "")).lower(), np.nan
             )
             for statement_with_validation in output
         )
@@ -166,7 +167,6 @@ class Faithfulness(MetricWithLLM):
                 "Invalid JSON response. Expected dictionary with key 'verdict'"
             )
             score = np.nan
-
         return score
 
     async def _ascore(

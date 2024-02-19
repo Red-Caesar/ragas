@@ -77,7 +77,7 @@ Output:
 
 @dataclass
 class JsonLoader:
-    max_retries: int = 2
+    max_retries: int = 10
 
     def _safe_load(self, text: str, llm: BaseRagasLLM, callbacks: Callbacks = None):
         retry = 0
