@@ -10,7 +10,9 @@ llamaindex.ipynb
 langchain.ipynb
 langsmith.ipynb
 ragas-arize.ipynb
-athina.ipynb
 langfuse.ipynb
+athina.ipynb
 zeno.ipynb
+tonic-validate.ipynb
+ragas_haystack.ipynb
 :::

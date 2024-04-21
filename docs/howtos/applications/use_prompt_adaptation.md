@@ -21,7 +21,7 @@ hindi_dataset
 ```{code-block}
 DatasetDict({
     train: Dataset({
-        features: ['question', 'ground_truths', 'answer', 'contexts'],
+        features: ['question', 'ground_truth', 'answer', 'contexts'],
         num_rows: 20
     })
 })
@@ -113,7 +113,7 @@ documents = loader.load()
 
 # add metadata
 for document in documents:
-    document.metadata['file_name'] = document.metadata['source']
+    document.metadata['filename'] = document.metadata['source']
 
 ```
 
@@ -125,9 +125,18 @@ Now we can import all the required evolutions and adapt it using `generator.adap
 
 from ragas.testset.generator import TestsetGenerator
 from ragas.testset.evolutions import simple, reasoning, multi_context,conditional
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 # generator with openai models
-generator = TestsetGenerator.with_openai()
+generator_llm = ChatOpenAI(model="gpt-3.5-turbo-16k")
+critic_llm = ChatOpenAI(model="gpt-4")
+embeddings = OpenAIEmbeddings()
+
+generator = TestsetGenerator.from_langchain(
+    generator_llm,
+    critic_llm,
+    embeddings
+)
 
 # adapt to language
 language = "hindi"

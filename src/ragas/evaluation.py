@@ -10,9 +10,14 @@ from langchain_core.language_models import BaseLanguageModel as LangchainLLM
 
 from ragas._analytics import EvaluationEvent, track
 from ragas.callbacks import new_group
-from ragas.embeddings.base import BaseRagasEmbeddings, LangchainEmbeddingsWrapper
+from ragas.embeddings.base import (
+    BaseRagasEmbeddings,
+    LangchainEmbeddingsWrapper,
+    embedding_factory,
+)
 from ragas.exceptions import ExceptionInRunner
 from ragas.executor import Executor
+from ragas.llms import llm_factory
 from ragas.llms.base import BaseRagasLLM, LangchainLLMWrapper
 from ragas.metrics._answer_correctness import AnswerCorrectness
 from ragas.metrics.base import Metric, MetricWithEmbeddings, MetricWithLLM
@@ -35,21 +40,20 @@ if t.TYPE_CHECKING:
 def evaluate(
     dataset: Dataset,
     metrics: list[Metric] | None = None,
-    llm: t.Optional[BaseRagasLLM] = None,
-    embeddings: t.Optional[BaseRagasEmbeddings] = None,
-    callbacks: Callbacks = [],
+    llm: t.Optional[BaseRagasLLM | LangchainLLM] = None,
+    embeddings: t.Optional[BaseRagasEmbeddings | LangchainEmbeddings] = None,
+    callbacks: Callbacks = None,
     is_async: bool = False,
-    max_workers: t.Optional[int] = None,
     run_config: t.Optional[RunConfig] = None,
     raise_exceptions: bool = True,
-    column_map: t.Dict[str, str] = {},
+    column_map: t.Optional[t.Dict[str, str]] = None,
 ) -> Result:
     """
     Run the evaluation on the dataset with different metrics
 
     Parameters
     ----------
-    dataset : Dataset[question: list[str], contexts: list[list[str]], answer: list[str], ground_truths: list[list[str]]]
+    dataset : Dataset[question: list[str], contexts: list[list[str]], answer: list[str], ground_truth: list[list[str]]]
         The dataset in the format of ragas which the metrics will use to score the RAG
         pipeline with
     metrics : list[Metric] , optional
@@ -57,11 +61,11 @@ def evaluate(
         evaluation on the best set of metrics to give a complete view.
     llm: BaseRagasLLM, optional
         The language model to use for the metrics. If not provided then ragas will use
-        the default language model. This can we overridden by the llm specified in
+        the default language model for metrics which require an LLM. This can we overridden by the llm specified in
         the metric level with `metric.llm`.
     embeddings: BaseRagasEmbeddings, optional
         The embeddings to use for the metrics. If not provided then ragas will use
-        the default embeddings. This can we overridden by the embeddings specified in
+        the default embeddings for metrics which require embeddings. This can we overridden by the embeddings specified in
         the metric level with `metric.embeddings`.
     callbacks: Callbacks, optional
         Lifecycle Langchain Callbacks to run during evaluation. Check the
@@ -72,13 +76,10 @@ def evaluate(
         evaluation is run by calling the `metric.ascore` method. In case the llm or
         embeddings does not support async then the evaluation can be run in sync mode
         with `is_async=False`. Default is False.
-    max_workers: int, optional
-        The number of workers to use for the evaluation. This is used by the
-        `ThreadpoolExecutor` to run the evaluation in sync mode.
     run_config: RunConfig, optional
         Configuration for runtime settings like timeout and retries. If not provided,
         default values are used.
-    raise_exceptions: bool, optional
+    raise_exceptions: True
         Whether to raise exceptions or not. If set to True then the evaluation will
         raise an exception if any of the metrics fail. If set to False then the
         evaluation will return `np.nan` for the row that failed. Default is True.
@@ -108,7 +109,7 @@ def evaluate(
 
     >>> dataset
     Dataset({
-        features: ['question', 'ground_truths', 'answer', 'contexts'],
+        features: ['question', 'ground_truth', 'answer', 'contexts'],
         num_rows: 30
     })
 
@@ -119,12 +120,14 @@ def evaluate(
     'answer_relevancy': 0.874}
     ```
     """
+    column_map = column_map or {}
+    callbacks = callbacks or []
+
     if dataset is None:
         raise ValueError("Provide dataset!")
 
     # default run_config
-    if run_config is None:
-        run_config = RunConfig()
+    run_config = run_config or RunConfig()
     # default metrics
     if metrics is None:
         from ragas.metrics import (
@@ -144,34 +147,30 @@ def evaluate(
     validate_column_dtypes(dataset)
 
     # set the llm and embeddings
-    if llm is None:
-        from ragas.llms import llm_factory
-
-        llm = llm_factory()
-    elif isinstance(llm, LangchainLLM):
+    if isinstance(llm, LangchainLLM):
         llm = LangchainLLMWrapper(llm, run_config=run_config)
-    if embeddings is None:
-        from ragas.embeddings.base import embedding_factory
-
-        embeddings = embedding_factory()
-    elif isinstance(embeddings, LangchainEmbeddings):
+    if isinstance(embeddings, LangchainEmbeddings):
         embeddings = LangchainEmbeddingsWrapper(embeddings)
+
     # init llms and embeddings
     binary_metrics = []
     llm_changed: t.List[int] = []
     embeddings_changed: t.List[int] = []
     answer_correctness_is_set = -1
+
     for i, metric in enumerate(metrics):
         if isinstance(metric, AspectCritique):
             binary_metrics.append(metric.name)
-        if isinstance(metric, MetricWithLLM):
-            if metric.llm is None:
-                metric.llm = llm
-                llm_changed.append(i)
-        if isinstance(metric, MetricWithEmbeddings):
-            if metric.embeddings is None:
-                metric.embeddings = embeddings
-                embeddings_changed.append(i)
+        if isinstance(metric, MetricWithLLM) and metric.llm is None:
+            if llm is None:
+                llm = llm_factory()
+            metric.llm = llm
+            llm_changed.append(i)
+        if isinstance(metric, MetricWithEmbeddings) and metric.embeddings is None:
+            if embeddings is None:
+                embeddings = embedding_factory()
+            metric.embeddings = embeddings
+            embeddings_changed.append(i)
         if isinstance(metric, AnswerCorrectness):
             if metric.answer_similarity is None:
                 answer_correctness_is_set = i
@@ -183,6 +182,7 @@ def evaluate(
         desc="Evaluating",
         keep_progress_bar=True,
         raise_exceptions=raise_exceptions,
+        run_config=run_config,
     )
     # new evaluation chain
     row_run_managers = []

@@ -16,7 +16,7 @@ Ragas takes a novel approach to evaluation data generation. An ideal evaluation 
 
 ### In-Depth Evolution
 
-Language Language Models (LLMs) possess the capability to transform simple questions into more complex ones effectively. To generate medium to hard samples from the provided documents, we employ the following methods:
+Large Language Models (LLMs) possess the capability to transform simple questions into more complex ones effectively. To generate medium to hard samples from the provided documents, we employ the following methods:
 
 - **Reasoning:** Rewrite the question in a way that enhances the need for reasoning to answer it effectively.
 
@@ -60,11 +60,20 @@ Checkout [llama-index](https://gpt-index.readthedocs.io/en/stable/core_modules/d
 :caption: Customising test data distribution 
 from ragas.testset.generator import TestsetGenerator
 from ragas.testset.evolutions import simple, reasoning, multi_context
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 # documents = load your documents
 
 # generator with openai models
-generator = TestsetGenerator.with_openai()
+generator_llm = ChatOpenAI(model="gpt-3.5-turbo-16k")
+critic_llm = ChatOpenAI(model="gpt-4")
+embeddings = OpenAIEmbeddings()
+
+generator = TestsetGenerator.from_langchain(
+    generator_llm,
+    critic_llm,
+    embeddings
+)
 
 # Change resulting question type distribution
 distributions = {

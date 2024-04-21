@@ -2,8 +2,9 @@
 Q - question
 A - answer: generated_text from RAG pipeline
 C - contexts: context used for generation
-G - ground_truths: ground truth answer
+G - ground_truth: ground truth answer
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,28 @@ if t.TYPE_CHECKING:
 
 
 EvaluationMode = Enum("EvaluationMode", "qac qa qc gc ga qga qcg")
+
+
+def get_required_columns(
+    eval_mod: EvaluationMode, ignore_columns: t.Optional[t.List[str]] = None
+) -> t.List[str]:
+    if eval_mod == EvaluationMode.qac:
+        keys = ["question", "answer", "contexts"]
+    elif eval_mod == EvaluationMode.qa:
+        keys = ["question", "answer"]
+    elif eval_mod == EvaluationMode.qc:
+        keys = ["question", "contexts"]
+    elif eval_mod == EvaluationMode.gc:
+        keys = ["contexts", "ground_truth"]
+    elif eval_mod == EvaluationMode.ga:
+        keys = ["answer", "ground_truth"]
+    elif eval_mod == EvaluationMode.qga:
+        keys = ["question", "contexts", "answer", "ground_truth"]
+    elif eval_mod == EvaluationMode.qcg:
+        keys = ["question", "contexts", "ground_truth"]
+    ignore_columns = ignore_columns or []
+
+    return [k for k in keys if k not in ignore_columns]
 
 
 @dataclass
@@ -60,7 +83,8 @@ class Metric(ABC):
             "adapt() is not implemented for {} metric".format(self.name)
         )
 
-    def score(self: t.Self, row: t.Dict, callbacks: Callbacks = []) -> float:
+    def score(self: t.Self, row: t.Dict, callbacks: Callbacks = None) -> float:
+        callbacks = callbacks or []
         rm, group_cm = new_group(
             self.name, inputs=row, callbacks=callbacks, is_async=False
         )
@@ -78,8 +102,9 @@ class Metric(ABC):
         return score
 
     async def ascore(
-        self: t.Self, row: t.Dict, callbacks: Callbacks = [], is_async: bool = True
+        self: t.Self, row: t.Dict, callbacks: Callbacks = None, is_async: bool = True
     ) -> float:
+        callbacks = callbacks or []
         rm, group_cm = new_group(
             self.name, inputs=row, callbacks=callbacks, is_async=True
         )

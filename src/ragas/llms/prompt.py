@@ -36,19 +36,21 @@ class Prompt(BaseModel):
     Attributes:
         name (str): The name of the prompt.
         instruction (str): The instruction for the prompt.
+        output_format_instruction (str): The output format instruction for the prompt.
         examples (List[Dict[str, Any]]): List of example inputs and outputs for the prompt.
         input_keys (List[str]): List of input variable names.
         output_key (str): The output variable name.
-        output_type (str): The type of the output (default: "json").
-        language (str): The language of the prompt (default: "en").
+        output_type (Literal["json", "str"]): The type of the output (default: "json").
+        language (str): The language of the prompt (default: "english").
     """
 
     name: str
     instruction: str
+    output_format_instruction: str = ""
     examples: t.List[Example] = []
     input_keys: t.List[str]
     output_key: str
-    output_type: str = "json"
+    output_type: t.Literal["json", "str"] = "json"
     language: str = "english"
 
     @root_validator
@@ -91,17 +93,20 @@ class Prompt(BaseModel):
         """
         Generate the prompt string from the variables.
         """
-        added_json_instruction = (
-            "\nOutput in only valid JSON format."
-            if self.output_type.lower() == "json"
-            else ""
-        )
-        prompt_str = self.instruction + added_json_instruction + "\n"
+        prompt_elements = [self.instruction]
+        if self.output_format_instruction:
+            prompt_elements.append(
+                "\n"
+                + self.output_format_instruction.replace("{", "{{").replace("}", "}}")
+            )
+        prompt_str = "\n".join(prompt_elements) + "\n"
 
         if self.examples:
+            prompt_str += "\nExamples:\n"
             # Format the examples to match the Langchain prompt template
             for example in self.examples:
                 for key, value in example.items():
+                    is_json = isinstance(value, (dict, list))
                     value = (
                         json.dumps(value, ensure_ascii=False).encode("utf8").decode()
                     )
@@ -110,8 +115,14 @@ class Prompt(BaseModel):
                         if self.output_type.lower() == "json"
                         else value
                     )
-                    prompt_str += f"\n{key}: {value}"
+                    prompt_str += (
+                        f"\n{key}: {value}"
+                        if not is_json
+                        else f"\n{key}: ```{value}```"
+                    )
                 prompt_str += "\n"
+
+        prompt_str += "\nYour actual task:\n"
 
         if self.input_keys:
             prompt_str += "".join(f"\n{key}: {{{key}}}" for key in self.input_keys)
@@ -136,7 +147,7 @@ class Prompt(BaseModel):
                 else value
             )
             example_str += f"\n{key}: {value}"
-        return example_str
+        return "```" + example_str + "```"
 
     def format(self, **kwargs: t.Any) -> PromptValue:
         """
@@ -225,11 +236,10 @@ class Prompt(BaseModel):
 
             if self.output_type.lower() == "json":
                 output = example_dict[self.output_key]
-                print(output)
                 if isinstance(output, dict):
                     assert (
                         set(output.keys()) == output_keys[i]
-                    ), "Adapted output keys do not match with the original output keys"
+                    ), f"Adapted output keys {set(output.keys())=} do not match with the original output keys: {output_keys[i]=}"
                 elif isinstance(output, list) and all(
                     isinstance(item, dict) for item in output
                 ):
@@ -271,6 +281,11 @@ str_translation = Prompt(
             "input": "Who was  Albert Einstein and what is he best known for?",
             "output": "अल्बर्ट आइंस्टीन कौन थे और वे किसके लिए सबसे ज्यादा प्रसिद्ध हैं?",
         },
+        {
+            "translate_to": "dutch",
+            "input": "Who was queen Elizabeth and what is she best known for?",
+            "output": "Wie was koningin Elizabeth en waar is zij het meest bekend om?",
+        },
     ],
     input_keys=["translate_to", "input"],
     output_key="output",
@@ -295,9 +310,24 @@ json_translatation = Prompt(
                     "अल्बर्ट आइंस्टीन अपने सापेक्षता के सिद्धांत के लिए सबसे अधिक प्रसिद्ध थे।",
                 ]
             },
-        }
+        },
+        {
+            "translate_to": "dutch",
+            "input": {
+                "statements": [
+                    "Paris is the capital of France.",
+                    "Croissants are a popular French pastry.",
+                ]
+            },
+            "output": {
+                "statements": [
+                    "Parijs is de hoofdstad van Frankrijk.",
+                    "Croissants zijn een populair Frans gebak.",
+                ]
+            },
+        },
     ],
     input_keys=["translate_to", "input"],
     output_key="output",
-    output_type="JSON",
+    output_type="json",
 )

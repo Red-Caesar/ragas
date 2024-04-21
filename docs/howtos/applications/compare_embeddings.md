@@ -29,6 +29,7 @@ For this tutorial notebook, I am using papers from Semantic Scholar that is rela
 :caption: load documents using llama-hub and create test data
 from llama_index import download_loader
 from ragas.testset.evolutions import simple, reasoning, multi_context
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 SemanticScholarReader = download_loader("SemanticScholarReader")
 loader = SemanticScholarReader()
@@ -36,7 +37,16 @@ query_space = "large language models"
 documents = loader.load_data(query=query_space, limit=100)
 
 # generator with openai models
-generator = TestsetGenerator.with_openai()
+generator_llm = ChatOpenAI(model="gpt-3.5-turbo-16k")
+critic_llm = ChatOpenAI(model="gpt-4")
+embeddings = OpenAIEmbeddings()
+
+generator = TestsetGenerator.from_langchain(
+    generator_llm,
+    critic_llm,
+    embeddings
+)
+
 
 distributions = {
     simple: 0.5,
@@ -45,7 +55,7 @@ distributions = {
 }
 
 # generate testset
-testset = generator.generate_with_llama_index_docs(documents, 100,distributions)
+testset = generator.generate_with_llamaindex_docs(documents, 100,distributions)
 testset.to_pandas()
 ```
 
@@ -71,8 +81,8 @@ refer to [langchain-tutorial](../integrations/langchain.ipynb) see how to evalua
 ```{code-block} python
 
 import nest_asyncio
-from llama_index import VectorStoreIndex, SimpleDirectoryReader, ServiceContext,OpenAIEmbedding
-from langchain.embeddings import HuggingFaceEmbeddings
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, ServiceContext
+from langchain.embeddings import HuggingFaceEmbeddings, OpenAIEmbeddings
 import pandas as pd
 
 nest_asyncio.apply()

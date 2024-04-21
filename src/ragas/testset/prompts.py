@@ -1,3 +1,6 @@
+from langchain_core.pydantic_v1 import BaseModel
+
+from ragas.llms.output_parser import RagasoutputParser, get_json_format_instructions
 from ragas.llms.prompt import Prompt
 
 reasoning_question_prompt = Prompt(
@@ -23,7 +26,7 @@ reasoning_question_prompt = Prompt(
     ],
     input_keys=["question", "context"],
     output_key="output",
-    output_type="string",
+    output_type="str",
     language="english",
 )
 
@@ -54,7 +57,7 @@ multi_context_question_prompt = Prompt(
     ],
     input_keys=["question", "context1", "context2"],
     output_key="output",
-    output_type="string",
+    output_type="str",
     language="english",
 )
 
@@ -81,7 +84,7 @@ conditional_question_prompt = Prompt(
     ],
     input_keys=["question", "context"],
     output_key="output",
-    output_type="string",
+    output_type="str",
     language="english",
 )
 
@@ -102,7 +105,7 @@ compress_question_prompt = Prompt(
     ],
     input_keys=["question"],
     output_key="output",
-    output_type="string",
+    output_type="str",
     language="english",
 )
 
@@ -130,162 +133,39 @@ conversational_question_prompt = Prompt(
     language="english",
 )
 
-context_scoring_prompt = Prompt(
-    name="score_context",
-    instruction="""Given a context, complete the two following tasks and output answer valid json format
-1.Evaluate the provided context and assign a numerical score between 0 and 10 based on the following criteria:
-    - Award a high score to context that thoroughly delves into and explains concepts.
-    - Assign a lower score to context that contains excessive references, acknowledgments, personal information, or other non-essential elements.""",
-    examples=[
-        {
-            "context": "Albert Einstein (14 March 1879 - 18 April 1955) was a German-born theoretical physicist who is widely held to be one of the greatest and most influential scientists of all time.",
-            "output": {"score": 6.0},
-        }
-    ],
-    input_keys=["context"],
-    output_key="output",
-    output_type="json",
-    language="english",
-)
-
-question_rewrite_prompt = Prompt(
-    name="rewrite_question",
-    instruction="""Given a context, transform the given question to be clear and standalone by replacing its coreferences with specific details from the context:""",
-    examples=[
-        {
-            "context": "The Eiffel Tower was constructed using iron and was originally intended as a temporary exhibit for the 1889 World's Fair held in Paris. Despite its initial temporary purpose, the Eiffel Tower quickly became a symbol of Parisian ingenuity and an iconic landmark of the city, attracting millions of visitors each year. The tower's design, created by Gustave Eiffel, was initially met with criticism from some French artists and intellectuals, but it has since been celebrated as a masterpiece of structural engineering and architectural design.",
-            "question": "Who created the design for the Tower?",
-            "output": "Who created the design for the Eiffel Tower?",
-        },
-        {
-            "context": "'Exploring Zero-Shot Learning in Neural Networks' was published by Smith and Lee in 2021, focusing on the application of zero-shot learning techniques in artificial intelligence.",
-            "question": "What datasets were used for the zero-shot evaluations in this study?",
-            "output": "What datasets were used for the zero-shot evaluations Exploring Zero-Shot Learning in Neural Networks paper?",
-        },
-    ],
-    input_keys=["context", "question"],
-    output_key="output",
-    output_type="string",
-    language="english",
-)
-
-
-filter_question_prompt = Prompt(
-    name="filter_question",
-    instruction="""Given a question, classify it based on clarity and specificity. Use only 'Clear' (1) and 'Unclear' (0) as verdict.""",
-    examples=[
-        {
-            "question": "What is the discovery about space?",
-            "output": {
-                "reason": "The question is too vague and does not specify which discovery about space it is referring to.",
-                "verdit": "0",
-            },
-        },
-        {
-            "question": "What caused the Great Depression?",
-            "output": {
-                "reason": "The question is specific and refers to a well-known historical economic event, making it clear and answerable.",
-                "verdict": "1",
-            },
-        },
-        {
-            "question": "What is the keyword that best describes the paper's focus in natural language understanding tasks?",
-            "output": {
-                "reason": "The question mentions a 'paper' in it without referring it's name which makes it unclear without it",
-                "verdict": "0",
-            },
-        },
-        {
-            "question": "Who wrote 'Romeo and Juliet'?",
-            "output": {
-                "reason": "The question is clear and refers to a specific work by name therefore it is clear",
-                "verdict": "1",
-            },
-        },
-        {
-            "question": "What did the study mention?",
-            "output": {
-                "reason": "The question is vague and does not specify which study it is referring to",
-                "verdict": "0",
-            },
-        },
-        {
-            "question": "What is the focus of the REPLUG paper?",
-            "output": {
-                "reason": "The question refers to a specific work by it's name hence can be understood",
-                "verdict": "1",
-            },
-        },
-        {
-            "question": "What is the purpose of the reward-driven stage in the training process?",
-            "output": {
-                "reason": "The question lacks specific context regarding the type of training process, making it potentially ambiguous and open to multiple interpretations.",
-                "verdict": "0",
-            },
-        },
-    ],
-    input_keys=["question"],
-    output_key="output",
-    output_type="json",
-    language="english",
-)
-
-evolution_elimination_prompt = Prompt(
-    name="evolution_elimination",
-    instruction="""Check if the given two questions are equal based on following requirements:
-    1. They have same constraints and requirements.
-    2. They have same depth and breadth of the inquiry.
-    Output verdict as 1 if they are equal and 0 if they are not""",
-    examples=[
-        {
-            "question1": "What are the primary causes of climate change?",
-            "question2": "What factors contribute to global warming?",
-            "output": {
-                "reason": "While both questions deal with environmental issues, 'climate change' encompasses broader changes than 'global warming', leading to different depths of inquiry.",
-                "verdict": "0",
-            },
-        },
-        {
-            "question1": "How does photosynthesis work in plants?",
-            "question2": "Can you explain the process of photosynthesis in plants?",
-            "output": {
-                "reason": "Both questions ask for an explanation of the photosynthesis process in plants, sharing the same depth, breadth, and requirements for the answer.",
-                "verdict": "1",
-            },
-        },
-        {
-            "question1": "What are the health benefits of regular exercise?",
-            "question2": "Can you list the advantages of exercising regularly for health?",
-            "output": {
-                "reason": "Both questions seek information about the positive effects of regular exercise on health. They require a similar level of detail in listing the health benefits.",
-                "verdict": "1",
-            },
-        },
-    ],
-    input_keys=["question1", "question2"],
-    output_key="output",
-    output_type="json",
-    language="english",
-)
 
 question_answer_prompt = Prompt(
     name="answer_formulate",
-    instruction="""Answer the question using the information from the given context. Answer '-1' if answer is not present in the context.""",
+    instruction="""Answer the question using the information from the given context. Output verdict as '1' if answer is present '-1' if answer is not present in the context.""",
     examples=[
         {
-            "context": """The novel '1984' by George Orwell is set in a dystopian future where the world is divided into three superstates. The story follows the life of Winston Smith, who lives in Oceania, a superstate constantly at war.""",
-            "question": "In which superstate does Winston Smith live in the novel '1984'?",
-            "answer": "Winston Smith lives in the superstate of Oceania in the novel '1984'.",
+            "context": """Climate change is significantly influenced by human activities, notably the emission of greenhouse gases from burning fossil fuels. The increased greenhouse gas concentration in the atmosphere traps more heat, leading to global warming and changes in weather patterns.""",
+            "question": "How do human activities contribute to climate change?",
+            "answer": {
+                "answer": "Human activities contribute to climate change primarily through the emission of greenhouse gases from burning fossil fuels. These emissions increase the concentration of greenhouse gases in the atmosphere, which traps more heat and leads to global warming and altered weather patterns.",
+                "verdict": "1",
+            },
+        },
+        {
+            "context": """The concept of artificial intelligence (AI) has evolved over time, but it fundamentally refers to machines designed to mimic human cognitive functions. AI can learn, reason, perceive, and, in some instances, react like humans, making it pivotal in fields ranging from healthcare to autonomous vehicles.""",
+            "question": "What are the key capabilities of artificial intelligence?",
+            "answer": {
+                "answer": "Artificial intelligence is designed to mimic human cognitive functions, with key capabilities including learning, reasoning, perception, and reacting to the environment in a manner similar to humans. These capabilities make AI pivotal in various fields, including healthcare and autonomous driving.",
+                "verdict": "1",
+            },
         },
         {
             "context": """The novel "Pride and Prejudice" by Jane Austen revolves around the character Elizabeth Bennet and her family. The story is set in the 19th century in rural England and deals with issues of marriage, morality, and misconceptions.""",
             "question": "What year was 'Pride and Prejudice' published?",
-            "answer": "-1",
+            "answer": {
+                "answer": "The answer to given question is not present in context",
+                "verdict": "-1",
+            },
         },
     ],
     input_keys=["context", "question"],
     output_key="answer",
-    output_type="string",
+    output_type="json",
     language="english",
 )
 
@@ -324,46 +204,60 @@ keyphrase_extraction_prompt = Prompt(
 
 seed_question_prompt = Prompt(
     name="seed_question",
-    instruction="generate a question that can be fully answered from given context. The question should contain atleast two of the given keyphrases",
+    instruction="Generate a question that can be fully answered from given context. The question should be formed using topic",
     examples=[
         {
             "context": "Photosynthesis in plants involves converting light energy into chemical energy, using chlorophyll and other pigments to absorb light. This process is crucial for plant growth and the production of oxygen.",
-            "keyphrases": [
-                "Photosynthesis",
-                "Light energy",
-                "Chlorophyll",
-                "Oxygen production",
-            ],
-            "question": "How does chlorophyll aid in converting light energy into chemical energy during photosynthesis?",
+            "keyphrase": "Photosynthesis",
+            "question": "What is the role of photosynthesis in plant growth?",
         },
         {
             "context": "The Industrial Revolution, starting in the 18th century, marked a major turning point in history as it led to the development of factories and urbanization.",
-            "keyphrases": [
-                "Industrial Revolution",
-                "18th century",
-                "Factories",
-                "Urbanization",
-            ],
-            "question": "Why did the Industrial Revolution significantly contribute to the development of factories and urbanization?",
+            "keyphrase": "Industrial Revolution",
+            "question": "How did the Industrial Revolution mark a major turning point in history?",
         },
         {
-            "context": "A black hole is a region of spacetime where gravity is so strong that nothing, including light and other electromagnetic waves, has enough energy to escape it. The theory of general relativity predicts that a sufficiently compact mass can deform spacetime to form a black hole.",
-            "keyphrases": [
-                "Black hole",
-                "region of spacetime",
-                "Sufficiently compact mass",
-                "Energy to escape",
-            ],
-            "question": "What is a black hole and how does it relate to a region of spacetime?",
+            "context": "The process of evaporation plays a crucial role in the water cycle, converting water from liquid to vapor and allowing it to rise into the atmosphere.",
+            "keyphrase": "Evaporation",
+            "question": "Why is evaporation important in the water cycle?",
         },
     ],
-    input_keys=["context", "keyphrases"],
+    input_keys=["context", "keyphrase"],
     output_key="question",
-    output_type="string",
+    output_type="str",
 )
 
-find_relevent_context_prompt = Prompt(
-    name="find_relevent_context",
+main_topic_extraction_prompt = Prompt(
+    name="main_topic_extraction",
+    instruction="Identify and extract the two main topics discussed in depth in the given text.",
+    examples=[
+        {
+            "text": "Blockchain technology presents a decentralized ledger that ensures the integrity and transparency of data transactions. It underpins cryptocurrencies like Bitcoin, providing a secure and immutable record of all transactions. Beyond finance, blockchain has potential applications in supply chain management, where it can streamline operations, enhance traceability, and improve fraud prevention. It allows for real-time tracking of goods and transparent sharing of data among participants.",
+            "output": {
+                "topics": [
+                    "Blockchain technology and its foundational role in cryptocurrencies",
+                    "Applications of blockchain in supply chain management",
+                ]
+            },
+        },
+        {
+            "text": "Telemedicine has revolutionized the way healthcare is delivered, particularly in rural and underserved areas. It allows patients to consult with doctors via video conferencing, improving access to care and reducing the need for travel. Another significant advancement in healthcare is precision medicine, which tailors treatments to individual genetic profiles. This approach has led to more effective therapies for a variety of conditions, including certain cancers and chronic diseases.",
+            "output": {
+                "topics": [
+                    "Telemedicine and its impact on healthcare accessibility",
+                    "Precision medicine and its role in tailoring treatments to genetic profiles",
+                ]
+            },
+        },
+    ],
+    input_keys=["text"],
+    output_key="output",
+    output_type="json",
+)
+
+
+find_relevant_context_prompt = Prompt(
+    name="find_relevant_context",
     instruction="Given a question and set of contexts, find the most relevant contexts to answer the question.",
     examples=[
         {
@@ -374,7 +268,7 @@ find_relevent_context_prompt = Prompt(
                 "3. Paris is the capital of France. It is also the most populous city in France, with a population of over 2 million people. Paris is known for its cultural landmarks like the Eiffel Tower and the Louvre Museum.",
             ],
             "output": {
-                "relevent_contexts": [1, 2],
+                "relevant_contexts": [1, 2],
             },
         },
         {
@@ -388,6 +282,201 @@ find_relevent_context_prompt = Prompt(
         },
     ],
     input_keys=["question", "contexts"],
+    output_key="output",
+    output_type="json",
+    language="english",
+)
+
+
+question_rewrite_prompt = Prompt(
+    name="rewrite_question",
+    instruction="""Given a context, question and feedback, rewrite the question to improve its clarity and answerability based on the feedback provided.""",
+    examples=[
+        {
+            "context": "The Eiffel Tower was constructed using iron and was originally intended as a temporary exhibit for the 1889 World's Fair held in Paris. Despite its initial temporary purpose, the Eiffel Tower quickly became a symbol of Parisian ingenuity and an iconic landmark of the city, attracting millions of visitors each year. The tower's design, created by Gustave Eiffel, was initially met with criticism from some French artists and intellectuals, but it has since been celebrated as a masterpiece of structural engineering and architectural design.",
+            "question": "Who created the design for the Tower?",
+            "feedback": "The question asks about the creator of the design for 'the Tower', but it does not specify which tower it refers to. There are many towers worldwide, and without specifying the exact tower, the question is unclear and unanswerable. To improve the question, it should include the name or a clear description of the specific tower in question.",
+            "output": "Who created the design for the Eiffel Tower?",
+        },
+        {
+            "context": "'Exploring Zero-Shot Learning in Neural Networks' was published by Smith and Lee in 2021, focusing on the application of zero-shot learning techniques in artificial intelligence.",
+            "question": "What datasets were used for the zero-shot evaluations in this study?",
+            "feedback": "The question asks about the datasets used for zero-shot evaluations in 'this study', without specifying or providing any details about the study in question. This makes the question unclear for those who do not have access to or knowledge of the specific study. To improve clarity and answerability, the question should specify the study it refers to, or provide enough context about the study for the question to be understood and answered independently.",
+            "output": "What datasets were used for the zero-shot evaluations Exploring Zero-Shot Learning in Neural Networks paper?",
+        },
+    ],
+    input_keys=["context", "question", "feedback"],
+    output_key="output",
+    output_type="str",
+    language="english",
+)
+
+### Filters
+
+
+class ContextScoring(BaseModel):
+    clarity: int
+    depth: int
+    structure: int
+    relevance: int
+
+
+class QuestionFilter(BaseModel):
+    feedback: str
+    verdict: int
+
+
+class EvolutionElimination(BaseModel):
+    reason: str
+    verdict: int
+
+
+context_scoring_parser = RagasoutputParser(pydantic_object=ContextScoring)
+question_filter_parser = RagasoutputParser(pydantic_object=QuestionFilter)
+evolution_elimination_parser = RagasoutputParser(pydantic_object=EvolutionElimination)
+
+context_scoring_prompt = Prompt(
+    name="score_context",
+    instruction="""
+    Given a context, perform the following task and output the answer in VALID JSON format: Assess the provided context and assign a numerical score of 1 (Low), 2 (Medium), or 3 (High) for each of the following criteria in your JSON response:
+
+clarity: Evaluate the precision and understandability of the information presented. High scores (3) are reserved for contexts that are both precise in their information and easy to understand. Low scores (1) are for contexts where the information is vague or hard to comprehend.
+depth: Determine the level of detailed examination and the inclusion of innovative insights within the context. A high score indicates a comprehensive and insightful analysis, while a low score suggests a superficial treatment of the topic.
+structure: Assess how well the content is organized and whether it flows logically. High scores are awarded to contexts that demonstrate coherent organization and logical progression, whereas low scores indicate a lack of structure or clarity in progression.
+relevance: Judge the pertinence of the content to the main topic, awarding high scores to contexts tightly focused on the subject without unnecessary digressions, and low scores to those that are cluttered with irrelevant information.
+Structure your JSON output to reflect these criteria as keys with their corresponding scores as values
+    """,
+    output_format_instruction=get_json_format_instructions(ContextScoring),
+    examples=[
+        {
+            "context": "The Pythagorean theorem is a fundamental principle in geometry. It states that in a right-angled triangle, the square of the length of the hypotenuse (the side opposite the right angle) is equal to the sum of the squares of the lengths of the other two sides. This can be written as a^2 + b^2 = c^2 where c represents the length of the hypotenuse, and a and b represent the lengths of the other two sides.",
+            "output": ContextScoring.parse_obj(
+                {"clarity": 3, "depth": 1, "structure": 3, "relevance": 3}
+            ).dict(),
+        },
+        {
+            "context": "Albert Einstein (14 March 1879 - 18 April 1955) was a German-born theoretical physicist who is widely held to be one of the greatest and most influential scientists of all time.",
+            "output": ContextScoring.parse_obj(
+                {"clarity": 3, "depth": 2, "structure": 3, "relevance": 3}
+            ).dict(),
+        },
+        {
+            "context": "I love chocolate. It's really tasty. Oh, and by the way, the earth orbits the sun, not the other way around. Also, my favorite color is blue.",
+            "output": ContextScoring.parse_obj(
+                {"clarity": 2, "depth": 1, "structure": 1, "relevance": 1}
+            ).dict(),
+        },
+    ],
+    input_keys=["context"],
+    output_key="output",
+    output_type="json",
+    language="english",
+)
+
+
+filter_question_prompt = Prompt(
+    name="filter_question",
+    instruction="""
+Asses the given question for clarity and answerability given enough domain knowledge, consider the following criteria:
+1.Independence: Can the question be understood and answered without needing additional context or access to external references not provided within the question itself? Questions should be self-contained, meaning they do not rely on specific documents, tables, or prior knowledge not shared within the question.
+2.Clear Intent: Is it clear what type of answer or information the question seeks? The question should convey its purpose without ambiguity, allowing for a direct and relevant response.
+Based on these criteria, assign a verdict of "1" if a question is specific, independent, and has a clear intent, making it understandable and answerable based on the details provided. Assign "0" if it fails to meet one or more of these criteria due to vagueness, reliance on external references, or ambiguity in intent.
+Provide feedback and a verdict in JSON format, including suggestions for improvement if the question is deemed unclear. Highlight aspects of the question that contribute to its clarity or lack thereof, and offer advice on how it could be reframed or detailed for better understanding and answerability.
+""",
+    output_format_instruction=get_json_format_instructions(QuestionFilter),
+    examples=[
+        {
+            "question": "What is the discovery about space?",
+            "output": QuestionFilter.parse_obj(
+                {
+                    "feedback": "The question is too vague and broad, asking for a 'discovery about space' without specifying any particular aspect, time frame, or context of interest. This could refer to a wide range of topics, from the discovery of new celestial bodies to advancements in space travel technology. To improve clarity and answerability, the question could specify the type of discovery (e.g., astronomical, technological), the time frame (e.g., recent, historical), or the context (e.g., within a specific research study or space mission).",
+                    "verdict": "0",
+                }
+            ).dict(),
+        },
+        {
+            "question": "How does ALMA-13B-R perform compared to other translation models in the WMT'23 study, based on the results in context1 and context2?",
+            "output": QuestionFilter.parse_obj(
+                {
+                    "feedback": "This question asks for a comparison of the ALMA-13B-R model's performance against other translation models within the WMT'23 study, specifically referring to results in 'context1' and 'context2'. While it clearly specifies the model of interest (ALMA-13B-R) and the study (WMT'23), it assumes access to and understanding of 'context1' and 'context2' without explaining what these contexts entail. This makes the question unclear for those not familiar with the WMT'23 study or these specific contexts. To improve clarity and answerability for a broader audience, the question could benefit from defining or describing 'context1' and 'context2' or explaining the criteria used for comparison in these contexts.",
+                    "verdict": "0",
+                }
+            ).dict(),
+        },
+        {
+            "question": "How do KIWI-XXL and XCOMET compare to the gold standard references in Table 1 in terms of evaluation scores, translation model performance, and success rate in surpassing the references?",
+            "output": QuestionFilter.parse_obj(
+                {
+                    "feedback": "The question requests a comparison between KIWI-XXL and XCOMET models and gold standard references in 'Table 1', focusing on evaluation scores, translation model performance, and success rates in surpassing the references. It specifies the models and criteria for comparison, making the intent clear. However, the question assumes access to 'Table 1' without providing its content or context, making it unclear for those without direct access to the source material. To be clearer and more answerable for a general audience, the question could include a brief description of the content or key findings of 'Table 1', or alternatively, frame the question in a way that does not rely on specific, unpublished documents.",
+                    "verdict": 0,
+                }
+            ).dict(),
+        },
+        {
+            "question": "What is the configuration of UL2 training objective in OpenMoE and why is it a better choice for pre-training?",
+            "output": QuestionFilter.parse_obj(
+                {
+                    "feedback": "The question asks for the configuration of the UL2 training objective within the OpenMoE framework and the rationale behind its suitability for pre-training. It is clear in specifying the topic of interest (UL2 training objective, OpenMoE) and seeks detailed information on both the configuration and the reasons for its effectiveness in pre-training. However, the question might be challenging for those unfamiliar with the specific terminology or the context of OpenMoE and UL2. For broader clarity and answerability, it would be helpful if the question included a brief explanation or context about OpenMoE and the UL2 training objective, or clarified the aspects of pre-training effectiveness it refers to (e.g., efficiency, accuracy, generalization).",
+                    "verdict": 1,
+                }
+            ).dict(),
+        },
+        {
+            "question": "What is the detailed configuration of the UL2 training objective in OpenMoE, based on the provided context?",
+            "output": QuestionFilter.parse_obj(
+                {
+                    "feedback": "The question seeks detailed information on the UL2 training objective's configuration within the OpenMoE framework, mentioning 'the provided context' without actually including or describing this context within the query. This makes the question unclear for those who do not have access to the unspecified context. For the question to be clear and answerable, it needs to either include the relevant context directly within the question or be framed in a way that does not require external information. Detailing the specific aspects of the configuration of interest (e.g., loss functions, data augmentation techniques) could also help clarify the query.",
+                    "verdict": 0,
+                }
+            ).dict(),
+        },
+    ],
+    input_keys=["question"],
+    output_key="output",
+    output_type="json",
+    language="english",
+)
+
+evolution_elimination_prompt = Prompt(
+    name="evolution_elimination",
+    instruction="""Check if the given two questions are equal based on following requirements:
+    1. They have same constraints and requirements.
+    2. They have same depth and breadth of the inquiry.
+    Output verdict as 1 if they are equal and 0 if they are not""",
+    output_format_instruction=get_json_format_instructions(EvolutionElimination),
+    examples=[
+        {
+            "question1": "What are the primary causes of climate change?",
+            "question2": "What factors contribute to global warming?",
+            "output": EvolutionElimination.parse_obj(
+                {
+                    "reason": "While both questions deal with environmental issues, 'climate change' encompasses broader changes than 'global warming', leading to different depths of inquiry.",
+                    "verdict": 0,
+                }
+            ).dict(),
+        },
+        {
+            "question1": "How does photosynthesis work in plants?",
+            "question2": "Can you explain the process of photosynthesis in plants?",
+            "output": EvolutionElimination.parse_obj(
+                {
+                    "reason": "Both questions ask for an explanation of the photosynthesis process in plants, sharing the same depth, breadth, and requirements for the answer.",
+                    "verdict": 1,
+                }
+            ).dict(),
+        },
+        {
+            "question1": "What are the health benefits of regular exercise?",
+            "question2": "Can you list the advantages of exercising regularly for health?",
+            "output": EvolutionElimination.parse_obj(
+                {
+                    "reason": "Both questions seek information about the positive effects of regular exercise on health. They require a similar level of detail in listing the health benefits.",
+                    "verdict": 1,
+                }
+            ).dict(),
+        },
+    ],
+    input_keys=["question1", "question2"],
     output_key="output",
     output_type="json",
     language="english",

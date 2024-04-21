@@ -4,7 +4,7 @@ This is a tutorial notebook that shows how to create and use custom prompts with
 
 **Dataset**
 
-Here I’m using a dataset from HuggingFace. 
+Here I’m using a dataset from HuggingFace.
 
 ```{code-block} python
 
@@ -17,7 +17,7 @@ amnesty_dataset
 ```{code-block} bash
 DatasetDict({
     train: Dataset({
-        features: ['question', 'ground_truths', 'answer', 'contexts'],
+        features: ['question', 'ground_truth', 'answer', 'contexts'],
         num_rows: 20
     })
 })
@@ -53,7 +53,7 @@ long_form_answer_prompt_new = Prompt(
     ],
     input_keys=["question", "answer"],
     output_key="statements",
-    output_type="JSON",
+    output_type="json",
 )
 ```
 
